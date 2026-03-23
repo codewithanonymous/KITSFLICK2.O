@@ -12,14 +12,18 @@ export default function Login() {
 
   async function handleSubmit(event) {
     event.preventDefault();
+    console.log('[FE][CLICK] Login submit clicked');
     setStatus({ loading: true, error: '', success: '' });
 
     try {
+      console.log('[FE][FLOW] Login -> /api/login');
       const data = await apiJson('/api/login', 'POST', form);
       login(data.user, data.token);
+      console.log('[FE][FLOW] Login success, navigating to /feed');
       setStatus({ loading: false, error: '', success: 'Login successful. Launching feed.' });
       navigate('/feed');
     } catch (error) {
+      console.error('[FE][FLOW] Login failed', error);
       setStatus({ loading: false, error: error.message, success: '' });
     }
   }
@@ -33,6 +37,7 @@ export default function Login() {
             value={form.username}
             onChange={(event) => setForm((current) => ({ ...current, username: event.target.value }))}
             placeholder="username or name@kitsw.ac.in"
+            autoComplete="username"
             required
           />
         </label>
@@ -44,6 +49,7 @@ export default function Login() {
             value={form.password}
             onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
             placeholder="password"
+            autoComplete="current-password"
             required
           />
         </label>

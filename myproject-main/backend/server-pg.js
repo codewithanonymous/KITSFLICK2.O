@@ -31,6 +31,30 @@ const PORT = Number(process.env.PORT || 5000);
 const builtFrontendDir = path.join(__dirname, '../frontend/dist');
 const frontendDir = fs.existsSync(builtFrontendDir) ? builtFrontendDir : path.join(__dirname, '../frontend');
 const uploadDir = path.join(__dirname, '../frontend', 'uploads');
+const CORS_DEBUG_ALL = process.env.CORS_DEBUG_ALL === 'true';
+
+function normalizeOrigin(origin = '') {
+    return origin.trim().replace(/\/+$/, '').toLowerCase();
+}
+
+const defaultAllowedOrigins = [
+    'https://kitsflick.in',
+    'https://www.kitsflick.in',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+];
+
+const configuredAllowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+
+const allowedOrigins = new Set([
+    ...defaultAllowedOrigins.map((origin) => normalizeOrigin(origin)),
+    ...configuredAllowedOrigins,
+]);
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -40,12 +64,34 @@ initSocket(server);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-    origin: 'https://kitsflick.in',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-}));
-app.options('*', cors());
+if (CORS_DEBUG_ALL) {
+    console.warn('[BE][CORS] Debug mode enabled via CORS_DEBUG_ALL=true (all origins allowed)');
+    app.use(cors());
+} else {
+    const corsOptions = {
+        origin: (origin, callback) => {
+            if (!origin) {
+                callback(null, true);
+                return;
+            }
+
+            const normalizedOrigin = normalizeOrigin(origin);
+            if (allowedOrigins.has(normalizedOrigin)) {
+                callback(null, true);
+                return;
+            }
+
+            console.warn(`[BE][CORS] Blocked origin: ${origin}`);
+            callback(new Error(`Origin not allowed by CORS: ${origin}`));
+        },
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        credentials: true,
+        optionsSuccessStatus: 204,
+    };
+
+    app.use(cors(corsOptions));
+    app.options('*', cors(corsOptions));
+}
 
 app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
@@ -56,10 +102,13 @@ app.use((req, res, next) => {
 });
 
 app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    console.log('Headers:', JSON.stringify(req.headers, null, 2));
-    console.log('Body:', req.body);
-    console.log('Query:', req.query);
+    const startedAt = Date.now();
+    const origin = req.headers.origin || 'n/a';
+    const bodyKeys = req.body && typeof req.body === 'object' ? Object.keys(req.body) : [];
+    console.log(`[BE][REQ] ${req.method} ${req.originalUrl} origin=${origin} bodyKeys=${bodyKeys.join(',') || 'none'}`);
+    res.on('finish', () => {
+        console.log(`[BE][RES] ${req.method} ${req.originalUrl} status=${res.statusCode} durationMs=${Date.now() - startedAt}`);
+    });
     next();
 });
 
@@ -139,6 +188,7 @@ app.get('/admin', (req, res) => res.sendFile(path.join(frontendDir, 'admin.html'
 
 const handleSignup = async (req, res) => {
     try {
+        console.log('[BE][FLOW] Signup route hit (/api/signup or /api/register)');
         const username = normalizeText(req.body.username, 50);
         const email = normalizeText(req.body.email, 255).toLowerCase();
         const password = String(req.body.password || '').trim();
@@ -157,6 +207,7 @@ const handleSignup = async (req, res) => {
             [username, email, passwordHash],
         );
 
+        console.log(`[BE][FLOW] Signup success userId=${result.rows[0].id}`);
         return res.status(201).json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('Signup error:', error);
@@ -225,6 +276,7 @@ app.post('/api/queries', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     try {
+        console.log('[BE][FLOW] Login route hit (/api/login)');
         const identifier = normalizeText(req.body.username || req.body.email, 120);
         const password = String(req.body.password || '').trim();
 
@@ -259,6 +311,7 @@ app.post('/api/login', async (req, res) => {
         await db.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
         const token = jwt.sign({ id: user.id, username: user.username, role: 'user' }, JWT_SECRET, { expiresIn: '24h' });
 
+        console.log(`[BE][FLOW] Login success userId=${user.id}`);
         return res.json({ success: true, token, user: { id: user.id, username: user.username, email: user.email, role: 'user' } });
     } catch (error) {
         console.error('Login error:', error);

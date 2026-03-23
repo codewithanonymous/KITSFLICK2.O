@@ -1,4 +1,5 @@
 const API = (import.meta.env.VITE_API_URL || 'https://kitsflicbackend.onrender.com').replace(/\/+$/, '');
+const DEBUG_HTTP = import.meta.env.VITE_DEBUG_HTTP === 'true';
 
 async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -15,12 +16,31 @@ async function parseResponse(response) {
 }
 
 export async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-    },
-  });
+  const method = String(options.method || 'GET').toUpperCase();
+  const url = `${API}${path}`;
+
+  if (DEBUG_HTTP) {
+    console.log(`[FE][REQ] ${method} ${url}`);
+  }
+
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+      },
+    });
+  } catch (error) {
+    if (DEBUG_HTTP) {
+      console.error(`[FE][NET_ERR] ${method} ${url}`, error);
+    }
+    throw error;
+  }
+
+  if (DEBUG_HTTP) {
+    console.log(`[FE][RES] ${method} ${url} -> ${response.status}`);
+  }
 
   return parseResponse(response);
 }
