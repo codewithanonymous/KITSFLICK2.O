@@ -1,4 +1,8 @@
 function resolveApiBase() {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
+  }
+
   if (import.meta.env.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '');
   }
@@ -14,7 +18,7 @@ function resolveApiBase() {
     return `${window.location.protocol}//${hostname}:3000`;
   }
 
-  return '';
+  return 'https://kitsflicbackend.onrender.com';
 }
 
 const API_BASE = resolveApiBase();
