@@ -26,7 +26,6 @@ const getConnectionConfig = (database = process.env.PG_DATABASE || DEFAULT_APP_D
         return {
             connectionString: process.env.DATABASE_URL,
             ssl: {
-                require: true,
                 rejectUnauthorized: false,
             },
         };
@@ -42,7 +41,14 @@ const getConnectionConfig = (database = process.env.PG_DATABASE || DEFAULT_APP_D
     };
 };
 
-const pool = new Pool(getConnectionConfig());
+const pool = process.env.DATABASE_URL
+    ? new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+            rejectUnauthorized: false,
+        },
+    })
+    : new Pool(getConnectionConfig());
 
 const ensureDatabaseExists = async () => {
     if (process.env.DATABASE_URL) {
@@ -116,10 +122,9 @@ const initDb = async () => {
     }
 };
 
-module.exports = {
-    query: (text, params) => pool.query(text, params),
-    getClient: () => pool.connect(),
-    getConnectionConfig,
-    pool,
-    initDb,
-};
+pool.getClient = () => pool.connect();
+pool.getConnectionConfig = getConnectionConfig;
+pool.pool = pool;
+pool.initDb = initDb;
+
+module.exports = pool;
