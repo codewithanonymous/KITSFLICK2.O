@@ -1,4 +1,30 @@
-const API = (import.meta.env.VITE_API_URL || 'https://kitsflicbackend.onrender.com').replace(/\/+$/, '');
+function normalizeBaseUrl(value = '') {
+  return String(value).trim().replace(/\/+$/, '');
+}
+
+function resolveApiBase() {
+  const configured = normalizeBaseUrl(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '');
+  if (configured) {
+    return configured;
+  }
+
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const { hostname, port, protocol } = window.location;
+  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
+
+  // Local Vite frontend (5173) -> local backend (5000)
+  if (isLocalHost && port && port !== '5000') {
+    return `${protocol}//${hostname}:5000`;
+  }
+
+  // Production same-origin fallback
+  return '';
+}
+
+const API = resolveApiBase();
 const DEBUG_HTTP = import.meta.env.VITE_DEBUG_HTTP === 'true';
 
 async function parseResponse(response) {
