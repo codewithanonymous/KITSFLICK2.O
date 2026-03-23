@@ -1,27 +1,4 @@
-function resolveApiBase() {
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
-  }
-
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '');
-  }
-
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  const { hostname, port } = window.location;
-  const isLocalHost = hostname === 'localhost' || hostname === '127.0.0.1';
-
-  if (isLocalHost && port && port !== '3000') {
-    return `${window.location.protocol}//${hostname}:3000`;
-  }
-
-  return 'https://kitsflicbackend.onrender.com';
-}
-
-const API_BASE = resolveApiBase();
+const API = (import.meta.env.VITE_API_URL || 'https://kitsflicbackend.onrender.com').replace(/\/+$/, '');
 
 async function parseResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -38,7 +15,7 @@ async function parseResponse(response) {
 }
 
 export async function apiRequest(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
+  const response = await fetch(`${API}${path}`, {
     ...options,
     headers: {
       ...(options.headers || {}),
