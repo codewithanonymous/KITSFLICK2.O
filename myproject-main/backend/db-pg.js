@@ -25,7 +25,10 @@ const getConnectionConfig = (database = process.env.PG_DATABASE || DEFAULT_APP_D
     if (process.env.DATABASE_URL) {
         return {
             connectionString: process.env.DATABASE_URL,
-            ssl: parseSslEnabled() ? { rejectUnauthorized: false } : false,
+            ssl: {
+                require: true,
+                rejectUnauthorized: false,
+            },
         };
     }
 

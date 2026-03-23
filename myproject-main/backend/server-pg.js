@@ -4,6 +4,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const bcrypt = require('bcrypt');
+const cors = require('cors');
 require('dotenv').config();
 
 const db = require('./db-pg');
@@ -26,10 +27,11 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const server = http.createServer(app);
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 5000);
 const builtFrontendDir = path.join(__dirname, '../frontend/dist');
 const frontendDir = fs.existsSync(builtFrontendDir) ? builtFrontendDir : path.join(__dirname, '../frontend');
 const uploadDir = path.join(__dirname, '../frontend', 'uploads');
+const deployedFrontendOrigin = 'https://kitsflickadv.vercel.app';
 const localOrigins = [
     'http://localhost:8080',
     'http://127.0.0.1:8080',
@@ -41,12 +43,34 @@ const localOrigins = [
 const allowedOrigins = new Set(
     [
         ...localOrigins,
+        deployedFrontendOrigin,
         ...(process.env.CORS_ALLOWED_ORIGINS || '')
             .split(',')
             .map((origin) => origin.trim())
             .filter(Boolean),
-    ],
+    ].map((origin) => origin.replace(/\/$/, '')),
 );
+
+const corsOptions = {
+    origin: (origin, callback) => {
+        if (!origin) {
+            callback(null, true);
+            return;
+        }
+
+        const normalizedOrigin = origin.replace(/\/$/, '');
+        if (allowedOrigins.has(normalizedOrigin)) {
+            callback(null, true);
+            return;
+        }
+
+        callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
@@ -56,25 +80,6 @@ initSocket(server);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-app.use((req, res, next) => {
-    const origin = req.headers.origin;
-
-    if (origin && allowedOrigins.has(origin)) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-        res.setHeader('Vary', 'Origin');
-    }
-
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(204);
-    }
-
-    return next();
-});
 
 app.use((req, res, next) => {
     if (req.path.startsWith('/api/')) {
