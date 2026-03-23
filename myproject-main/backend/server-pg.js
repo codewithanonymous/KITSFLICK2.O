@@ -56,6 +56,42 @@ const allowedOrigins = new Set([
     ...configuredAllowedOrigins,
 ]);
 
+const wildcardOrigins = configuredAllowedOrigins.filter((origin) => origin.includes('*'));
+
+function matchesWildcardOrigin(origin) {
+    return wildcardOrigins.some((pattern) => {
+        const normalizedPattern = normalizeOrigin(pattern);
+        if (!normalizedPattern.startsWith('https://*.')) {
+            return false;
+        }
+
+        const suffix = normalizedPattern.replace('https://*', '');
+        return origin.startsWith('https://') && origin.endsWith(suffix);
+    });
+}
+
+function isAllowedOrigin(origin) {
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOrigins.has(normalizedOrigin)) {
+        return true;
+    }
+
+    if (matchesWildcardOrigin(normalizedOrigin)) {
+        return true;
+    }
+
+    try {
+        const parsed = new URL(normalizedOrigin);
+        if (parsed.protocol === 'https:' && (parsed.hostname === 'kitsflick.in' || parsed.hostname.endsWith('.kitsflick.in'))) {
+            return true;
+        }
+    } catch (error) {
+        return false;
+    }
+
+    return false;
+}
+
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -75,8 +111,7 @@ if (CORS_DEBUG_ALL) {
                 return;
             }
 
-            const normalizedOrigin = normalizeOrigin(origin);
-            if (allowedOrigins.has(normalizedOrigin)) {
+            if (isAllowedOrigin(origin)) {
                 callback(null, true);
                 return;
             }
