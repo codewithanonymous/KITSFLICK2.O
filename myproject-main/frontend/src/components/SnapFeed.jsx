@@ -39,6 +39,7 @@ function FeedPost({
   const author = authorName(post, anonymousSnapIds);
   const liked = likedIds.includes(post.id);
   const kind = mediaKind(post.imageUrl);
+  const mediaUrl = `${import.meta.env.VITE_API_BASE_URL}${post.imageUrl}`;
   const isActive = index === activeIndex;
   const hashtags = formatHashtags(post.hashtags || []);
   const isNotice = post.postType === 'notice';
@@ -69,10 +70,10 @@ function FeedPost({
           <div className="feed-post-media-wrap">
             {kind === 'video' ? (
               <video className="feed-post-media" controls muted playsInline preload={isActive ? 'metadata' : 'none'}>
-                <source src={post.imageUrl} />
+                <source src={mediaUrl} />
               </video>
             ) : (
-              <img className="feed-post-media" src={post.imageUrl} alt={post.title || post.caption || 'Post media'} loading="lazy" decoding="async" />
+              <img className="feed-post-media" src={mediaUrl} alt={post.title || post.caption || 'Post media'} loading="lazy" decoding="async" />
             )}
           </div>
         ) : null}

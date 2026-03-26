@@ -419,6 +419,7 @@ function QuerySection({ queries, token, onRefresh, setGlobalStatus }) {
 }
 
 function PostEditor({ post, organizations, token, onRefresh, setGlobalStatus }) {
+  const mediaUrl = `${import.meta.env.VITE_API_BASE_URL}${post.imageUrl}`;
   const [form, setForm] = useState({
     title: post.title || '',
     caption: post.caption || '',
@@ -472,7 +473,7 @@ function PostEditor({ post, organizations, token, onRefresh, setGlobalStatus }) 
 
   return (
     <article className="card admin-card">
-      {post.imageUrl ? <img className="admin-snap-image" src={post.imageUrl} alt={post.title || post.caption || 'Post'} /> : null}
+      {post.imageUrl ? <img className="admin-snap-image" src={mediaUrl} alt={post.title || post.caption || 'Post'} /> : null}
       <div className="admin-card-copy">
         <div className="feed-post-title-row">
           <strong>{post.authorType === 'admin' ? 'Admin' : post.username}</strong>
