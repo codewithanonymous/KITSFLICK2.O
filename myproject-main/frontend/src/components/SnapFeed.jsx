@@ -27,6 +27,8 @@ function formatHashtags(tags = []) {
   return tags.map((tag) => `#${tag}`);
 }
 
+const CAPTION_PREVIEW_CHAR_LIMIT = 110;
+
 function resolveMediaUrl(imageUrl = '') {
   if (!imageUrl) return '';
   if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
@@ -46,6 +48,7 @@ function FeedPost({
   likedIds,
   canInteract,
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const author = authorName(post, anonymousSnapIds);
   const liked = likedIds.includes(post.id);
   const kind = mediaKind(post.imageUrl);
@@ -55,10 +58,16 @@ function FeedPost({
   const isNotice = post.postType === 'notice';
   const isAdminPost = post.authorType === 'admin';
   const title = post.title || (isNotice ? 'Official notice' : 'Campus post');
+  const captionText = String(post.caption || '').trim();
+  const canToggleCaption = captionText.length > CAPTION_PREVIEW_CHAR_LIMIT;
+  const visibleCaption = !canToggleCaption || isExpanded
+    ? captionText
+    : `${captionText.slice(0, CAPTION_PREVIEW_CHAR_LIMIT).trimEnd()}...`;
+  const cardModeClass = canToggleCaption && !isExpanded ? 'media-priority' : 'caption-priority';
 
   return (
     <article data-slide-index={index} className={`vertical-snap-slide ${isActive ? 'is-active' : ''}`}>
-      <div className={`feed-post-card ${kind === 'text' ? 'text-feed-post' : ''} ${isNotice ? 'notice-post' : ''}`.trim()}>
+      <div className={`feed-post-card ${cardModeClass} ${kind === 'text' ? 'text-feed-post' : ''} ${isNotice ? 'notice-post' : ''}`.trim()}>
         <div className="feed-post-head">
           <div className="author-row">
             <div className="avatar-badge">{avatarSeed(author)}</div>
@@ -96,7 +105,20 @@ function FeedPost({
             <strong className="feed-post-title">{title}</strong>
             <span className="status-chip">{post.postType}</span>
           </div>
-          {post.caption ? <p className="feed-post-body">{post.caption}</p> : null}
+          {captionText ? (
+            <div className="feed-caption-block">
+              <p className={`feed-post-body ${isExpanded ? 'expanded' : 'collapsed'}`.trim()}>{visibleCaption}</p>
+              {canToggleCaption ? (
+                <button
+                  type="button"
+                  className="caption-toggle-button"
+                  onClick={() => setIsExpanded((current) => !current)}
+                >
+                  {isExpanded ? 'Show less' : 'Read more'}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
           {post.location ? <span className="location-inline">{post.location}</span> : null}
           {hashtags.length ? (
             <div className="feed-hashtag-row">

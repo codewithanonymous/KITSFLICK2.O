@@ -206,7 +206,7 @@ function buildPushPayload(post) {
     };
 }
 
-async function sendPushToApprovedUsers(title, body, metadata = {}) {
+async function sendPushToAll(title, body, metadata = {}) {
     if (!PUSH_ENABLED) {
         return { attempted: 0, sent: 0 };
     }
@@ -220,6 +220,7 @@ async function sendPushToApprovedUsers(title, body, metadata = {}) {
     });
 
     const subscriptions = await listPushSubscriptionsForApprovedUsers();
+    console.log('Sending push to:', subscriptions.length);
     console.log(`[BE][PUSH] Sending push to: ${subscriptions.length}`);
 
     if (!subscriptions.length) {
@@ -247,7 +248,7 @@ async function sendPushToApprovedUsers(title, body, metadata = {}) {
 async function sendPostNotifications(post) {
     try {
         const payload = buildPushPayload(post);
-        await sendPushToApprovedUsers(payload.title, payload.body, { url: payload.url, postId: payload.postId });
+        await sendPushToAll(payload.title, payload.body, { url: payload.url, postId: payload.postId });
     } catch (error) {
         console.warn('[BE][PUSH] Notification dispatch failed:', error?.message || error);
     }
@@ -312,7 +313,7 @@ const handleSignup = async (req, res) => {
         );
 
         console.log(`[BE][FLOW] Signup success userId=${result.rows[0].id}`);
-        void sendPushToApprovedUsers('New User', 'Someone just joined KITSFlick!', { url: '/#/feed' });
+        await sendPushToAll('New User', 'Someone just joined KITSFlick!', { url: '/#/feed' });
         return res.status(201).json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('Signup error:', error);
@@ -516,7 +517,7 @@ async function handleManualPush(req, res) {
         const title = normalizeText(req.body?.title, 120) || 'Manual Push';
         const body = normalizeText(req.body?.body, 240) || 'Manual push notification from KITSFlick.';
         const url = normalizeOptionalText(req.body?.url, 512) || '/#/feed';
-        const result = await sendPushToApprovedUsers(title, body, { url });
+        const result = await sendPushToAll(title, body, { url });
 
         return res.json({
             success: true,
@@ -572,12 +573,16 @@ async function handleUserPost(req, res) {
         }
 
         await client.query('COMMIT');
+        const pushTasks = [];
         createdPosts.forEach((post) => {
             emitNewSnap(post);
             if (req.user?.canSendPushNotifications) {
-                void sendPostNotifications(post);
+                pushTasks.push(sendPostNotifications(post));
             }
         });
+        if (pushTasks.length) {
+            await Promise.allSettled(pushTasks);
+        }
         return res.status(201).json({ success: true, uploadedCount: createdPosts.length, snap: createdPosts[0], snaps: createdPosts });
     } catch (error) {
         if (client) {
@@ -677,7 +682,7 @@ app.post('/api/admin/posts', authenticateAdmin, upload.single('image'), async (r
         const post = await createPost({ client, authorType: 'admin', adminUserId: req.admin.id, title: req.body.title, caption: req.body.caption, location: req.body.location, hashtags: req.body.hashtags, organizationId: req.body.organizationId, postType: req.body.postType, isAnonymous: req.body.anonymous, file: req.file, imageUrl: req.body.imageUrl });
         await client.query('COMMIT');
         emitNewSnap(post);
-        void sendPostNotifications(post);
+        await sendPostNotifications(post);
         return res.status(201).json({ success: true, post });
     } catch (error) {
         if (client) await client.query('ROLLBACK');
@@ -696,7 +701,7 @@ app.post('/api/admin/notices', authenticateAdmin, async (req, res) => {
         const notice = await createPost({ client, authorType: 'admin', adminUserId: req.admin.id, title: req.body.title || 'Official notice', caption: req.body.caption, location: req.body.location, hashtags: req.body.hashtags, organizationId: req.body.organizationId, postType: 'notice', isAnonymous: false, file: null, imageUrl: req.body.imageUrl });
         await client.query('COMMIT');
         emitNewSnap(notice);
-        void sendPostNotifications(notice);
+        await sendPostNotifications(notice);
         return res.status(201).json({ success: true, notice });
     } catch (error) {
         await client.query('ROLLBACK');

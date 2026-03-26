@@ -1378,8 +1378,9 @@ label {
 
 .feed-post-media-wrap {
   min-height: 0;
+  width: 100%;
   height: 100%;
-  max-height: min(600px, 72vh);
+  max-height: min(460px, 56vh);
   position: relative;
   isolation: isolate;
   display: flex;
@@ -1387,6 +1388,15 @@ label {
   justify-content: center;
   background: #000;
   overflow: hidden;
+  transition: max-height 260ms ease;
+}
+
+.feed-post-card.media-priority .feed-post-media-wrap {
+  max-height: min(600px, 72vh);
+}
+
+.feed-post-card.caption-priority .feed-post-media-wrap {
+  max-height: min(420px, 52vh);
 }
 
 .feed-post-media-wrap.has-blur-bg::before {
@@ -1455,10 +1465,6 @@ label {
 .text-feed-post .feed-post-body {
   line-height: 1.45;
   font-size: 0.94rem;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .feed-hashtag-row,
@@ -1471,10 +1477,53 @@ label {
 .feed-post-body {
   margin: 0;
   line-height: 1.45;
+  overflow: hidden;
+}
+
+.feed-caption-block {
+  display: grid;
+  gap: 0.35rem;
+  min-height: 0;
+}
+
+.feed-post-body.collapsed {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  overflow: hidden;
+  max-height: 4.4rem;
+}
+
+.text-feed-post .feed-post-body.collapsed {
+  -webkit-line-clamp: 4;
+  max-height: 5.9rem;
+}
+
+.feed-post-body.expanded {
+  display: block;
+  max-height: none;
+  overflow: visible;
+}
+
+.caption-toggle-button {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: var(--brand);
+  font-size: 0.86rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  padding: 0.12rem 0.1rem 0.2rem;
+  min-height: 2.2rem;
+  border-radius: 10px;
+}
+
+.caption-toggle-button:hover {
+  color: var(--brand-strong);
+}
+
+.caption-toggle-button:focus-visible {
+  outline: 2px solid rgba(13, 110, 110, 0.28);
+  outline-offset: 2px;
 }
 
 .tag {
@@ -2020,7 +2069,24 @@ label {
   }
 
   .feed-post-media-wrap {
-    max-height: min(78vh, 34rem);
+    max-height: min(62vh, 30rem);
+  }
+
+  .feed-post-card.media-priority .feed-post-media-wrap {
+    max-height: min(74vh, 34rem);
+  }
+
+  .feed-post-card.caption-priority .feed-post-media-wrap {
+    max-height: min(52vh, 24rem);
+  }
+
+  .feed-post-caption {
+    gap: 0.38rem;
+  }
+
+  .caption-toggle-button {
+    min-height: 2.45rem;
+    padding-block: 0.35rem;
   }
 
   .vertical-feed-dots {
