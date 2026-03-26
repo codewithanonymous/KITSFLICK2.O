@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { Reveal } from './Animations';
 import { apiJson } from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import campusImage from '../../kitspic.jpg';
 import aboutImage from '../../aboutimage.jpg';
 
 const featureCards = [
@@ -122,7 +121,7 @@ function CampusVisualSection() {
       <Reveal className="campus-showcase-shell">
         <figure className="campus-showcase-media">
           <img
-            src={campusImage}
+            src="/kitspic.jpg"
             alt="KITS campus grounds with students, greenery, and academic spaces"
             loading="lazy"
             decoding="async"
