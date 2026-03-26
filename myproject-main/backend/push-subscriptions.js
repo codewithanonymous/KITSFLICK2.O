@@ -50,6 +50,26 @@ async function listPushSubscriptions() {
     return result.rows;
 }
 
+async function listPushSubscriptionsForApprovedUsers() {
+    const result = await db.query(
+        `
+            SELECT
+                ps.id,
+                ps.user_id AS "userId",
+                ps.endpoint,
+                ps.subscription
+            FROM push_subscriptions ps
+            JOIN users u ON u.id = ps.user_id
+            WHERE ps.endpoint IS NOT NULL
+              AND ps.subscription IS NOT NULL
+              AND u.is_active = true
+              AND u.can_send_push_notifications = true
+        `,
+    );
+
+    return result.rows;
+}
+
 async function deletePushSubscriptionByEndpoint(endpoint) {
     const normalizedEndpoint = String(endpoint || '').trim();
     if (!normalizedEndpoint) {
@@ -63,5 +83,6 @@ async function deletePushSubscriptionByEndpoint(endpoint) {
 module.exports = {
     deletePushSubscriptionByEndpoint,
     listPushSubscriptions,
+    listPushSubscriptionsForApprovedUsers,
     upsertPushSubscription,
 };

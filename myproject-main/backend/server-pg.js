@@ -27,7 +27,7 @@ const jwt = require('jsonwebtoken');
 const webpush = require('./push');
 const {
     deletePushSubscriptionByEndpoint,
-    listPushSubscriptions,
+    listPushSubscriptionsForApprovedUsers,
     upsertPushSubscription,
 } = require('./push-subscriptions');
 
@@ -198,38 +198,56 @@ function buildPushPayload(post) {
     const title = post?.postType === 'notice' ? 'New Notice on KITSflick' : 'New Post on KITSflick';
     const bodySource = postTitle || postCaption || 'A new update is available.';
 
-    return JSON.stringify({
+    return {
         title,
         body: `${authorName}: ${bodySource}`.slice(0, 180),
         url: '/#/feed',
         postId: post?.id || null,
+    };
+}
+
+async function sendPushToApprovedUsers(title, body, metadata = {}) {
+    if (!PUSH_ENABLED) {
+        return { attempted: 0, sent: 0 };
+    }
+
+    const safeTitle = normalizeText(String(title || ''), 120) || 'KITSflick';
+    const safeBody = normalizeText(String(body || ''), 240) || 'New update available.';
+    const payload = JSON.stringify({
+        title: safeTitle,
+        body: safeBody,
+        ...metadata,
     });
+
+    const subscriptions = await listPushSubscriptionsForApprovedUsers();
+    console.log(`[BE][PUSH] Sending push to: ${subscriptions.length}`);
+
+    if (!subscriptions.length) {
+        return { attempted: 0, sent: 0 };
+    }
+
+    let sent = 0;
+    await Promise.allSettled(subscriptions.map(async ({ endpoint, subscription }) => {
+        try {
+            await webpush.sendNotification(subscription, payload);
+            sent += 1;
+        } catch (error) {
+            const statusCode = Number(error?.statusCode || 0);
+            if (statusCode === 404 || statusCode === 410) {
+                await deletePushSubscriptionByEndpoint(endpoint);
+                return;
+            }
+            console.warn('[BE][PUSH] Push send failed:', error?.message || error);
+        }
+    }));
+
+    return { attempted: subscriptions.length, sent };
 }
 
 async function sendPostNotifications(post) {
-    if (!PUSH_ENABLED) {
-        return;
-    }
-
     try {
-        const subscriptions = await listPushSubscriptions();
-        if (!subscriptions.length) {
-            return;
-        }
-
         const payload = buildPushPayload(post);
-        await Promise.allSettled(subscriptions.map(async ({ endpoint, subscription }) => {
-            try {
-                await webpush.sendNotification(subscription, payload);
-            } catch (error) {
-                const statusCode = Number(error?.statusCode || 0);
-                if (statusCode === 404 || statusCode === 410) {
-                    await deletePushSubscriptionByEndpoint(endpoint);
-                    return;
-                }
-                console.warn('[BE][PUSH] Push send failed:', error?.message || error);
-            }
-        }));
+        await sendPushToApprovedUsers(payload.title, payload.body, { url: payload.url, postId: payload.postId });
     } catch (error) {
         console.warn('[BE][PUSH] Notification dispatch failed:', error?.message || error);
     }
@@ -294,6 +312,7 @@ const handleSignup = async (req, res) => {
         );
 
         console.log(`[BE][FLOW] Signup success userId=${result.rows[0].id}`);
+        void sendPushToApprovedUsers('New User', 'Someone just joined KITSFlick!', { url: '/#/feed' });
         return res.status(201).json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('Signup error:', error);
@@ -491,6 +510,28 @@ app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
         return res.status(400).json({ success: false, message: error.message || 'Failed to save subscription' });
     }
 });
+
+async function handleManualPush(req, res) {
+    try {
+        const title = normalizeText(req.body?.title, 120) || 'Manual Push';
+        const body = normalizeText(req.body?.body, 240) || 'Manual push notification from KITSFlick.';
+        const url = normalizeOptionalText(req.body?.url, 512) || '/#/feed';
+        const result = await sendPushToApprovedUsers(title, body, { url });
+
+        return res.json({
+            success: true,
+            message: 'Push trigger completed',
+            attempted: result.attempted,
+            sent: result.sent,
+        });
+    } catch (error) {
+        console.error('Manual send-push error:', error);
+        return res.status(400).json({ success: false, message: error.message || 'Failed to trigger push' });
+    }
+}
+
+app.post('/send-push', authenticateAdmin, handleManualPush);
+app.post('/api/send-push', authenticateAdmin, handleManualPush);
 
 app.get('/api/snaps/image/:id', async (req, res) => {
     const result = await db.query('SELECT image_data, mime_type FROM snaps WHERE id = $1', [req.params.id]);
