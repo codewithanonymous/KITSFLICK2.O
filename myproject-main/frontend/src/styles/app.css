@@ -15,8 +15,8 @@
   --danger: #c4515c;
   --shadow: 0 20px 60px rgba(16, 35, 61, 0.12);
   --radius: 24px;
-  --hero-image: url("/kitspic.jpg");
-  --auth-image: url("../../i2re.jpg");
+  --hero-image: url("/image.jpg");
+  --auth-image: url("/i2re.jpg");
   --hero-overlay-strong: rgba(0, 0, 0, 0.58);
   --hero-overlay-soft: rgba(6, 18, 34, 0.5);
   color: var(--text);
