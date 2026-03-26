@@ -30,13 +30,16 @@ function AuthGate({ children }) {
 function AuthPageShell({ title, eyebrow, description, children }) {
   return (
     <main className="public-page auth-page">
-      <section className="public-section auth-stage">
-        <Reveal className="card auth-shell-card">
-          <span className="eyebrow">{eyebrow}</span>
-          <h1>{title}</h1>
-          <p className="muted">{description}</p>
-          {children}
-        </Reveal>
+      <section className="auth-split">
+        <div className="auth-visual" aria-hidden="true" />
+        <section className="public-section auth-stage">
+          <Reveal className="card auth-shell-card">
+            <span className="eyebrow">{eyebrow}</span>
+            <h1>{title}</h1>
+            <p className="muted">{description}</p>
+            {children}
+          </Reveal>
+        </section>
       </section>
     </main>
   );
@@ -88,7 +91,7 @@ function AppBody() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
         <Route
-          path="/bunk-planner"
+          path="/bunkplaner"
           element={(
             <AuthGate>
               <BunkPlanner />

@@ -13,7 +13,6 @@ const publicLinks = [
 const signedInLinks = [
   { to: '/upload', label: 'Upload Snap' },
   { to: '/feed', label: 'View Feed' },
-  { to: '/bunk-planner', label: 'Bunk Planner' },
   { to: '/sac', label: 'SAC' },
   { to: '/association', label: 'ASSOCIATION' },
   { to: '/contact', label: 'Contact Admin' },

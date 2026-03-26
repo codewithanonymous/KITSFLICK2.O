@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { Reveal } from './Animations';
 import { apiJson } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import campusImage from '../../kitspic.jpg';
+import aboutImage from '../../aboutimage.jpg';
 
 const featureCards = [
   {
@@ -98,9 +100,8 @@ function PublicHero() {
         </p>
 
         <div className="hero-cta-stack">
-          <Link className="animated-button hero-primary-cta" to="/feed">View Feed</Link>
+          <Link className="animated-button hero-primary-cta" to="/signup">Get Started</Link>
           <Link className="ghost-button hero-secondary-cta" to="/signup">Join Now</Link>
-          <Link className="ghost-button hero-secondary-cta" to="/bunk-planner">Open Bunk Planner</Link>
         </div>
 
         <div className="trust-strip">
@@ -111,6 +112,42 @@ function PublicHero() {
       </Reveal>
 
       <FeedPreviewPhone />
+    </section>
+  );
+}
+
+function CampusVisualSection() {
+  return (
+    <section className="public-section campus-showcase-section">
+      <Reveal className="campus-showcase-shell">
+        <figure className="campus-showcase-media">
+          <img
+            src={campusImage}
+            alt="KITS campus grounds with students, greenery, and academic spaces"
+            loading="lazy"
+            decoding="async"
+          />
+          <div className="campus-showcase-overlay" aria-hidden="true" />
+        </figure>
+
+        <div className="campus-showcase-highlight">
+          <span className="status-chip">Campus stories in motion</span>
+          <p>Built around real spaces, real voices, and the energy students live every day.</p>
+        </div>
+
+        <div className="card campus-showcase-copy">
+          <span className="eyebrow">Campus Experience</span>
+          <h2>Experience Our Campus</h2>
+          <p>
+            Where innovation meets environment, KITSFLICK turns everyday campus moments into a premium,
+            connected story for students, clubs, and communities.
+          </p>
+          <div className="button-row campus-showcase-actions">
+            <Link className="animated-button" to="/about">Explore More</Link>
+            <Link className="ghost-button" to="/feed">View Live Feed</Link>
+          </div>
+        </div>
+      </Reveal>
     </section>
   );
 }
@@ -180,8 +217,9 @@ function FAQSection() {
 
 export function LandingPage() {
   return (
-    <main className="public-page">
+    <main className="public-page landing-page">
       <PublicHero />
+      <CampusVisualSection />
       <AboutPreview />
       <FeatureSection />
       <FAQSection />
@@ -192,14 +230,34 @@ export function LandingPage() {
 export function AboutPage() {
   return (
     <main className="public-page">
-      <section className="public-section page-intro">
-        <Reveal className="card section-card wide-card">
-          <span className="eyebrow">About Us</span>
-          <h1>KITSFLICK is designed to feel like a real campus product from the first scroll.</h1>
-          <p>
-            It brings together student posts, anonymous conversations, public browsing, official notices, and organization updates
-            in one clean digital space that mirrors how campus communities actually communicate.
-          </p>
+      <section className="public-section about-section">
+        <Reveal className="about-section-shell">
+          <figure className="about-media">
+            <img
+              src={aboutImage}
+              alt="Students and campus spaces representing the KITSFLICK community"
+              loading="lazy"
+              decoding="async"
+            />
+          </figure>
+
+          <div className="card about-content">
+            <span className="eyebrow">About Us</span>
+            <h1>Who We Are</h1>
+            <p>
+              KITSFLICK is a campus-first platform built to keep students, clubs, and departments connected.
+              We turn everyday moments into a trusted, premium feed that feels modern, safe, and community-driven.
+            </p>
+            <ul className="about-highlights">
+              <li>Clear, verified campus updates and notices</li>
+              <li>Student-first posting with anonymous options</li>
+              <li>Modern, mobile-ready experience across devices</li>
+            </ul>
+            <div className="button-row about-actions">
+              <Link className="animated-button" to="/signup">Learn More</Link>
+              <Link className="ghost-button" to="/feed">View Feed</Link>
+            </div>
+          </div>
         </Reveal>
       </section>
     </main>

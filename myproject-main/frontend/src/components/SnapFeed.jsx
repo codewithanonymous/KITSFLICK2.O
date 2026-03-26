@@ -27,6 +27,16 @@ function formatHashtags(tags = []) {
   return tags.map((tag) => `#${tag}`);
 }
 
+function resolveMediaUrl(imageUrl = '') {
+  if (!imageUrl) return '';
+  if (/^https?:\/\//i.test(imageUrl)) return imageUrl;
+
+  const base = String(import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+  if (!base) return imageUrl;
+
+  return `${base}${imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`}`;
+}
+
 function FeedPost({
   post,
   index,
@@ -39,7 +49,7 @@ function FeedPost({
   const author = authorName(post, anonymousSnapIds);
   const liked = likedIds.includes(post.id);
   const kind = mediaKind(post.imageUrl);
-  const mediaUrl = `${import.meta.env.VITE_API_BASE_URL}${post.imageUrl}`;
+  const mediaUrl = resolveMediaUrl(post.imageUrl);
   const isActive = index === activeIndex;
   const hashtags = formatHashtags(post.hashtags || []);
   const isNotice = post.postType === 'notice';
@@ -67,7 +77,10 @@ function FeedPost({
         </div>
 
         {post.imageUrl ? (
-          <div className="feed-post-media-wrap">
+          <div
+            className={`feed-post-media-wrap ${kind === 'image' ? 'has-blur-bg' : ''}`.trim()}
+            style={kind === 'image' ? { '--media-bg-image': `url("${mediaUrl}")` } : undefined}
+          >
             {kind === 'video' ? (
               <video className="feed-post-media" controls muted playsInline preload={isActive ? 'metadata' : 'none'}>
                 <source src={mediaUrl} />
@@ -141,6 +154,9 @@ export default function SnapFeed() {
   const railRef = useRef(null);
   const rafRef = useRef(null);
   const previousScrollTopRef = useRef(0);
+  const HIDE_SCROLL_TOP = 20;
+  const REVEAL_SCROLL_TOP = 72;
+  const DELTA_THRESHOLD = 2;
 
   const loadPosts = useCallback(async (mode = 'initial') => {
     if (mode === 'refresh') setRefreshing(true);
@@ -233,10 +249,21 @@ export default function SnapFeed() {
     function handleScroll() {
       const currentTop = rail.scrollTop;
       const delta = currentTop - previousScrollTopRef.current;
-      if (Math.abs(delta) > 10) {
-        setBarsHidden(delta > 0 && currentTop > 20);
-      }
-      previousScrollTopRef.current = currentTop;
+      const scrollingDown = delta > DELTA_THRESHOLD;
+      const scrollingUp = delta < -DELTA_THRESHOLD;
+
+      setBarsHidden((currentHidden) => {
+        if (currentTop <= 4) return false;
+        if (!currentHidden && currentTop > HIDE_SCROLL_TOP && (scrollingDown || currentTop > HIDE_SCROLL_TOP * 2)) {
+          return true;
+        }
+        if (currentHidden && scrollingUp && currentTop < REVEAL_SCROLL_TOP) {
+          return false;
+        }
+        return currentHidden;
+      });
+
+      previousScrollTopRef.current = Math.max(0, currentTop);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(updateActiveSlide);
     }
@@ -266,7 +293,7 @@ export default function SnapFeed() {
 
   return (
     <main className={`page feed-page vertical-feed-page ${barsHidden ? 'bars-hidden' : ''}`.trim()}>
-      {!token && !barsHidden ? (
+      {!token ? (
         <section className={`public-feed-banner card ${barsHidden ? 'public-feed-banner-hidden' : ''}`.trim()}>
           <div className="public-feed-copy">
             <span className="eyebrow">Public Feed</span>
