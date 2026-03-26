@@ -42,6 +42,23 @@ function AdminUsersList({ users, token, onRefresh, setGlobalStatus }) {
     }
   }
 
+  async function togglePushApproval(user) {
+    setGlobalStatus({ error: '', success: '' });
+    try {
+      const nextValue = !Boolean(user.canSendPushNotifications);
+      await apiJson(`/api/users/${user.id}/push-notifications`, 'PATCH', {
+        canSendPushNotifications: nextValue,
+      }, token);
+      setGlobalStatus({
+        error: '',
+        success: `Push notification posting ${nextValue ? 'enabled' : 'disabled'} for ${user.username}.`,
+      });
+      await onRefresh();
+    } catch (error) {
+      setGlobalStatus({ error: error.message, success: '' });
+    }
+  }
+
   return (
     <div className="card admin-section">
       <div className="section-header">
@@ -62,6 +79,17 @@ function AdminUsersList({ users, token, onRefresh, setGlobalStatus }) {
             </div>
             <div className="button-row">
               <span className={`status-chip ${user.isActive ? '' : 'inactive-chip'}`}>{user.isActive ? 'Active' : 'Disabled'}</span>
+              <span className={`status-chip ${user.canSendPushNotifications ? '' : 'inactive-chip'}`}>
+                {user.canSendPushNotifications ? 'Push Approved' : 'Push Blocked'}
+              </span>
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={Boolean(user.canSendPushNotifications)}
+                  onChange={() => togglePushApproval(user)}
+                />
+                <span>Allow Push Posts</span>
+              </label>
               <button className="ghost-button" type="button" onClick={() => toggleUser(user.id, user.isActive)}>
                 {user.isActive ? 'Disable' : 'Enable'}
               </button>

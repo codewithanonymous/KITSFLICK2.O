@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     last_login TIMESTAMPTZ,
     profile_picture_url VARCHAR(512),
     bio TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT true
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    can_send_push_notifications BOOLEAN NOT NULL DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS admin_users (
@@ -130,11 +131,21 @@ CREATE TABLE IF NOT EXISTS hashtags (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    endpoint TEXT NOT NULL UNIQUE,
+    subscription JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_picture_url VARCHAR(512);
 ALTER TABLE users ADD COLUMN IF NOT EXISTS bio TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS can_send_push_notifications BOOLEAN NOT NULL DEFAULT false;
 
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE admin_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
@@ -160,6 +171,21 @@ ALTER TABLE snaps ALTER COLUMN user_id DROP NOT NULL;
 ALTER TABLE snaps ALTER COLUMN image_url DROP NOT NULL;
 ALTER TABLE snaps ALTER COLUMN expires_at SET DEFAULT NULL;
 
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS endpoint TEXT;
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS subscription JSONB;
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE push_subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+UPDATE push_subscriptions
+SET endpoint = COALESCE(endpoint, subscription->>'endpoint')
+WHERE endpoint IS NULL;
+
+DELETE FROM push_subscriptions a
+USING push_subscriptions b
+WHERE a.ctid < b.ctid
+  AND a.endpoint IS NOT NULL
+  AND a.endpoint = b.endpoint;
+
 UPDATE snaps
 SET author_type = 'user'
 WHERE author_type IS NULL OR author_type = '';
@@ -182,6 +208,7 @@ SET updated_at = created_at
 WHERE updated_at IS NULL;
 
 CREATE INDEX IF NOT EXISTS idx_users_is_active ON users(is_active);
+CREATE INDEX IF NOT EXISTS idx_users_can_send_push_notifications ON users(can_send_push_notifications);
 CREATE INDEX IF NOT EXISTS idx_admin_users_username ON admin_users(username);
 CREATE INDEX IF NOT EXISTS idx_admin_users_is_active ON admin_users(is_active);
 CREATE INDEX IF NOT EXISTS idx_organizations_kind ON organizations(kind);
@@ -200,3 +227,5 @@ CREATE INDEX IF NOT EXISTS idx_hashtags_hashtag ON hashtags(hashtag);
 CREATE INDEX IF NOT EXISTS idx_association_requests_status ON association_requests(status);
 CREATE INDEX IF NOT EXISTS idx_club_requests_status ON club_requests(status);
 CREATE INDEX IF NOT EXISTS idx_queries_is_resolved ON queries(is_resolved);
+CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user_id ON push_subscriptions(user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint);

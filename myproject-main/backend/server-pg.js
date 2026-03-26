@@ -24,6 +24,12 @@ const {
     updatePost,
 } = require('./post-service');
 const jwt = require('jsonwebtoken');
+const webpush = require('./push');
+const {
+    deletePushSubscriptionByEndpoint,
+    listPushSubscriptions,
+    upsertPushSubscription,
+} = require('./push-subscriptions');
 
 const app = express();
 const server = http.createServer(app);
@@ -32,6 +38,7 @@ const builtFrontendDir = path.join(__dirname, '../frontend/dist');
 const frontendDir = fs.existsSync(builtFrontendDir) ? builtFrontendDir : path.join(__dirname, '../frontend');
 const uploadDir = path.join(__dirname, '../frontend', 'uploads');
 const CORS_DEBUG_ALL = process.env.CORS_DEBUG_ALL === 'true';
+const PUSH_ENABLED = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY);
 
 function normalizeOrigin(origin = '') {
     return origin.trim().replace(/\/+$/, '').toLowerCase();
@@ -182,6 +189,50 @@ function cleanUpTempFiles(files = []) {
             console.warn('Failed to clean temporary upload:', error.message);
         }
     });
+}
+
+function buildPushPayload(post) {
+    const authorName = String(post?.username || 'Someone').trim() || 'Someone';
+    const postTitle = String(post?.title || '').trim();
+    const postCaption = String(post?.caption || '').trim();
+    const title = post?.postType === 'notice' ? 'New Notice on KITSflick' : 'New Post on KITSflick';
+    const bodySource = postTitle || postCaption || 'A new update is available.';
+
+    return JSON.stringify({
+        title,
+        body: `${authorName}: ${bodySource}`.slice(0, 180),
+        url: '/#/feed',
+        postId: post?.id || null,
+    });
+}
+
+async function sendPostNotifications(post) {
+    if (!PUSH_ENABLED) {
+        return;
+    }
+
+    try {
+        const subscriptions = await listPushSubscriptions();
+        if (!subscriptions.length) {
+            return;
+        }
+
+        const payload = buildPushPayload(post);
+        await Promise.allSettled(subscriptions.map(async ({ endpoint, subscription }) => {
+            try {
+                await webpush.sendNotification(subscription, payload);
+            } catch (error) {
+                const statusCode = Number(error?.statusCode || 0);
+                if (statusCode === 404 || statusCode === 410) {
+                    await deletePushSubscriptionByEndpoint(endpoint);
+                    return;
+                }
+                console.warn('[BE][PUSH] Push send failed:', error?.message || error);
+            }
+        }));
+    } catch (error) {
+        console.warn('[BE][PUSH] Notification dispatch failed:', error?.message || error);
+    }
 }
 
 async function createRequestRecord({ tableName, organizationColumn, payload, userId = null }) {
@@ -424,6 +475,23 @@ app.get('/api/me/organizations', authenticateToken, async (req, res) => {
     return res.json({ success: true, organizations: await fetchUserOrganizations(req.user.id) });
 });
 
+app.post('/api/push/subscribe', authenticateToken, async (req, res) => {
+    try {
+        const subscription = req.body?.subscription;
+        const endpoint = String(subscription?.endpoint || '').trim();
+
+        if (!endpoint) {
+            return res.status(400).json({ success: false, message: 'Valid push subscription data is required' });
+        }
+
+        await upsertPushSubscription({ userId: req.user.id, subscription });
+        return res.json({ success: true, message: 'Subscription saved' });
+    } catch (error) {
+        console.error('Save push subscription error:', error);
+        return res.status(400).json({ success: false, message: error.message || 'Failed to save subscription' });
+    }
+});
+
 app.get('/api/snaps/image/:id', async (req, res) => {
     const result = await db.query('SELECT image_data, mime_type FROM snaps WHERE id = $1', [req.params.id]);
     if (!result.rows.length || !result.rows[0].image_data) {
@@ -463,7 +531,12 @@ async function handleUserPost(req, res) {
         }
 
         await client.query('COMMIT');
-        createdPosts.forEach((post) => emitNewSnap(post));
+        createdPosts.forEach((post) => {
+            emitNewSnap(post);
+            if (req.user?.canSendPushNotifications) {
+                void sendPostNotifications(post);
+            }
+        });
         return res.status(201).json({ success: true, uploadedCount: createdPosts.length, snap: createdPosts[0], snaps: createdPosts });
     } catch (error) {
         if (client) {
@@ -498,6 +571,7 @@ app.get('/api/users', authenticateAdmin, async (req, res) => {
             u.username,
             u.email,
             u.is_active AS "isActive",
+            u.can_send_push_notifications AS "canSendPushNotifications",
             u.created_at AS "createdAt",
             u.updated_at AS "updatedAt",
             u.last_login AS "lastLogin",
@@ -515,6 +589,28 @@ app.patch('/api/users/:id/status', authenticateAdmin, async (req, res) => {
     if (!result.rows.length) {
         return res.status(404).json({ success: false, message: 'User not found' });
     }
+    return res.json({ success: true, user: result.rows[0] });
+});
+
+app.patch('/api/users/:id/push-notifications', authenticateAdmin, async (req, res) => {
+    const result = await db.query(
+        `
+            UPDATE users
+            SET can_send_push_notifications = $2, updated_at = NOW()
+            WHERE id = $1
+            RETURNING
+                id,
+                username,
+                email,
+                can_send_push_notifications AS "canSendPushNotifications"
+        `,
+        [req.params.id, parseBoolean(req.body?.canSendPushNotifications)],
+    );
+
+    if (!result.rows.length) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
     return res.json({ success: true, user: result.rows[0] });
 });
 
@@ -540,6 +636,7 @@ app.post('/api/admin/posts', authenticateAdmin, upload.single('image'), async (r
         const post = await createPost({ client, authorType: 'admin', adminUserId: req.admin.id, title: req.body.title, caption: req.body.caption, location: req.body.location, hashtags: req.body.hashtags, organizationId: req.body.organizationId, postType: req.body.postType, isAnonymous: req.body.anonymous, file: req.file, imageUrl: req.body.imageUrl });
         await client.query('COMMIT');
         emitNewSnap(post);
+        void sendPostNotifications(post);
         return res.status(201).json({ success: true, post });
     } catch (error) {
         if (client) await client.query('ROLLBACK');
@@ -558,6 +655,7 @@ app.post('/api/admin/notices', authenticateAdmin, async (req, res) => {
         const notice = await createPost({ client, authorType: 'admin', adminUserId: req.admin.id, title: req.body.title || 'Official notice', caption: req.body.caption, location: req.body.location, hashtags: req.body.hashtags, organizationId: req.body.organizationId, postType: 'notice', isAnonymous: false, file: null, imageUrl: req.body.imageUrl });
         await client.query('COMMIT');
         emitNewSnap(notice);
+        void sendPostNotifications(notice);
         return res.status(201).json({ success: true, notice });
     } catch (error) {
         await client.query('ROLLBACK');

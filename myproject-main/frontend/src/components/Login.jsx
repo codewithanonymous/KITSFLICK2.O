@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AnimatedButton } from './Animations';
 import { apiJson } from '../services/api';
+import { enablePushNotifications } from '../services/pushNotification';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -19,6 +20,9 @@ export default function Login() {
       console.log('[FE][FLOW] Login -> /api/login');
       const data = await apiJson('/api/login', 'POST', form);
       login(data.user, data.token);
+      enablePushNotifications(data.token).catch((error) => {
+        console.warn('[FE][PUSH] Notification setup skipped:', error?.message || error);
+      });
       console.log('[FE][FLOW] Login success, navigating to /feed');
       setStatus({ loading: false, error: '', success: 'Login successful. Launching feed.' });
       navigate('/feed');

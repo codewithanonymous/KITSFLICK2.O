@@ -33,7 +33,7 @@ async function authenticateToken(req, res, next) {
 
         const result = await db.query(
             `
-                SELECT id, username, email, is_active AS "isActive"
+                SELECT id, username, email, is_active AS "isActive", can_send_push_notifications AS "canSendPushNotifications"
                 FROM users
                 WHERE id = $1
             `,
@@ -51,6 +51,7 @@ async function authenticateToken(req, res, next) {
             id: result.rows[0].id,
             username: result.rows[0].username,
             email: result.rows[0].email,
+            canSendPushNotifications: Boolean(result.rows[0].canSendPushNotifications),
             role: 'user',
         };
 
