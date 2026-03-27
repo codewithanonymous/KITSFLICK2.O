@@ -1343,6 +1343,14 @@ label {
   min-height: 0;
   max-height: 24rem;
   align-self: start;
+  transition: height 260ms ease, max-height 260ms ease, min-height 260ms ease;
+}
+
+.text-feed-post.expanded-notice-card {
+  height: calc(100vh - 6.8rem);
+  min-height: calc(100vh - 6.8rem);
+  max-height: calc(100vh - 6.8rem);
+  align-self: stretch;
 }
 
 .notice-post {
@@ -1433,6 +1441,11 @@ label {
   border-top: 1px solid rgba(17, 36, 59, 0.06);
   position: relative;
   z-index: 1;
+}
+
+.text-feed-post.expanded-notice-card .feed-post-caption {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .text-feed-post .feed-post-caption {
@@ -2066,6 +2079,12 @@ label {
   .feed-post-card {
     height: calc(100vh - 11.5rem);
     border-radius: 20px;
+  }
+
+  .text-feed-post.expanded-notice-card {
+    height: calc(100vh - 11.5rem);
+    min-height: calc(100vh - 11.5rem);
+    max-height: calc(100vh - 11.5rem);
   }
 
   .feed-post-media-wrap {

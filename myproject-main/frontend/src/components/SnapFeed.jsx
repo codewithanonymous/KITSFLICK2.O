@@ -60,6 +60,7 @@ function FeedPost({
   const title = post.title || (isNotice ? 'Official notice' : 'Campus post');
   const captionText = String(post.caption || '').trim();
   const canToggleCaption = captionText.length > CAPTION_PREVIEW_CHAR_LIMIT;
+  const isExpandedNotice = isNotice && kind === 'text' && canToggleCaption && isExpanded;
   const visibleCaption = !canToggleCaption || isExpanded
     ? captionText
     : `${captionText.slice(0, CAPTION_PREVIEW_CHAR_LIMIT).trimEnd()}...`;
@@ -67,7 +68,7 @@ function FeedPost({
 
   return (
     <article data-slide-index={index} className={`vertical-snap-slide ${isActive ? 'is-active' : ''}`}>
-      <div className={`feed-post-card ${cardModeClass} ${kind === 'text' ? 'text-feed-post' : ''} ${isNotice ? 'notice-post' : ''}`.trim()}>
+      <div className={`feed-post-card ${cardModeClass} ${kind === 'text' ? 'text-feed-post' : ''} ${isNotice ? 'notice-post' : ''} ${isExpandedNotice ? 'expanded-notice-card' : ''}`.trim()}>
         <div className="feed-post-head">
           <div className="author-row">
             <div className="avatar-badge">{avatarSeed(author)}</div>
@@ -114,7 +115,7 @@ function FeedPost({
                   className="caption-toggle-button"
                   onClick={() => setIsExpanded((current) => !current)}
                 >
-                  {isExpanded ? 'Show less' : 'Read more'}
+                  {isExpanded ? 'Read less' : 'Read more'}
                 </button>
               ) : null}
             </div>
